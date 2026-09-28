@@ -156,7 +156,7 @@ def run_elevated(cmd):
 class App:
     def __init__(self, root):
         self.root = root
-        root.title("Unitree L2 — panel")
+        root.title("Unitree L2 — control panel")
         self.events = queue.Queue()
         self.notes = queue.Queue()      # log lines from worker threads
         self.link = None
@@ -178,12 +178,12 @@ class App:
         self.dot = tk.Canvas(top, width=18, height=18, highlightthickness=0)
         self.dot.pack(side="left")
         self.dot_id = self.dot.create_oval(3, 3, 16, 16, fill="grey")
-        self.conn = ttk.Label(top, text="Łączenie…", font=("Segoe UI", 11, "bold"))
+        self.conn = ttk.Label(top, text="Connecting…", font=("Segoe UI", 11, "bold"))
         self.conn.pack(side="left", padx=6)
         self.where = ttk.Label(top, text="")
         self.where.pack(side="right")
 
-        cn = ttk.LabelFrame(self.root, text="Połączenie z lidarem")
+        cn = ttk.LabelFrame(self.root, text="Lidar connection")
         cn.pack(fill="x", **pad)
         self.transport = tk.StringVar(value="udp")
         ttk.Radiobutton(cn, text=f"Ethernet ({l2ctl.LIDAR[0]}, UDP {DATA_PORT})",
@@ -194,52 +194,52 @@ class App:
         self.com = ttk.Combobox(cn, width=8, values=ports, postcommand=self._refresh_ports)
         self.com.set(DEFAULT_COM if DEFAULT_COM in ports or not ports else ports[0])
         self.com.grid(row=0, column=2, sticky="w")
-        ttk.Button(cn, text="Połącz", command=self.do_connect).grid(row=0, column=3, sticky="e", padx=6, pady=4)
+        ttk.Button(cn, text="Connect", command=self.do_connect).grid(row=0, column=3, sticky="e", padx=6, pady=4)
         cn.columnconfigure(3, weight=1)
 
-        net = ttk.LabelFrame(self.root, text=f"Sieć hosta (adres {HOST_IP} na karcie {IFACE})")
+        net = ttk.LabelFrame(self.root, text=f"Host network (address {HOST_IP} on {IFACE})")
         net.pack(fill="x", **pad)
         self.net_lbl = ttk.Label(net, text="—")
         self.net_lbl.grid(row=0, column=0, sticky="w", padx=6)
-        self.btn_add = ttk.Button(net, text="Dodaj adres", command=self.do_ip_add, state="disabled")
+        self.btn_add = ttk.Button(net, text="Add address", command=self.do_ip_add, state="disabled")
         self.btn_add.grid(row=0, column=1, sticky="e", padx=4, pady=4)
-        self.btn_del = ttk.Button(net, text="Usuń adres", command=self.do_ip_del, state="disabled")
+        self.btn_del = ttk.Button(net, text="Remove address", command=self.do_ip_del, state="disabled")
         self.btn_del.grid(row=0, column=2, sticky="e", padx=6, pady=4)
         net.columnconfigure(0, weight=1)
 
         st = ttk.LabelFrame(self.root, text="Status")
         st.pack(fill="x", **pad)
-        rows = [("device", "Urządzenie"), ("rate", "Pakiety punktów"), ("points", "Punkty / s"),
-                ("lost", "Zgubione pakiety"), ("rot", "Obrót (poziomy / pionowy)"),
-                ("temp", "Temperatura APD / IMU"), ("volt", "Napięcie APD / lasera"),
-                ("dirty", "Zabrudzenie osłony"), ("imu", "IMU"), ("mode", "Tryb pracy")]
+        rows = [("device", "Device"), ("rate", "Point packets"), ("points", "Points / s"),
+                ("lost", "Lost packets"), ("rot", "Rotation (horizontal / vertical)"),
+                ("temp", "Temperature APD / IMU"), ("volt", "Voltage APD / laser"),
+                ("dirty", "Window dirt index"), ("imu", "IMU"), ("mode", "Work mode")]
         for r, (key, label) in enumerate(rows):
             ttk.Label(st, text=label + ":").grid(row=r, column=0, sticky="w", padx=6, pady=1)
             v = ttk.Label(st, text="—")
             v.grid(row=r, column=1, sticky="w", padx=6, pady=1)
             self.fields[key] = v
 
-        bt = ttk.LabelFrame(self.root, text="Sterowanie")
+        bt = ttk.LabelFrame(self.root, text="Control")
         bt.pack(fill="x", **pad)
         buttons = [("▶ Start", self.do_start), ("⏸ Standby", self.do_standby),
-                   ("⏱ Synchronizuj czas", self.do_timesync), ("⟳ Odśwież info", self.do_refresh),
-                   ("⚠ Reset lidara", self.do_reset), ("Podgląd 3D", self.do_viewer)]
+                   ("⏱ Sync time", self.do_timesync), ("⟳ Refresh info", self.do_refresh),
+                   ("⚠ Reset lidar", self.do_reset), ("3D view", self.do_viewer)]
         for i, (txt, fn) in enumerate(buttons):
             ttk.Button(bt, text=txt, command=fn).grid(row=i // 3, column=i % 3, sticky="ew", padx=4, pady=4)
         for c in range(3):
             bt.columnconfigure(c, weight=1)
 
-        md = ttk.LabelFrame(self.root, text="Tryb pracy (zapis trwały w lidarze)")
+        md = ttk.LabelFrame(self.root, text="Work mode (stored permanently in the lidar)")
         md.pack(fill="x", **pad)
         self.bits = []
         for bit, name, off, on in l2ctl.MODE_BITS:
             var = tk.IntVar()
-            ttk.Checkbutton(md, text=f"bit {bit} {name}: {on}   (odznaczone: {off})",
+            ttk.Checkbutton(md, text=f"bit {bit} {name}: {on}   (unchecked: {off})",
                             variable=var).pack(anchor="w", padx=6)
             self.bits.append((bit, var))
-        ttk.Button(md, text="Zapisz tryb…", command=self.do_setmode).pack(anchor="e", padx=6, pady=4)
+        ttk.Button(md, text="Save mode…", command=self.do_setmode).pack(anchor="e", padx=6, pady=4)
 
-        lg = ttk.LabelFrame(self.root, text="Dziennik")
+        lg = ttk.LabelFrame(self.root, text="Log")
         lg.pack(fill="both", expand=True, **pad)
         self.log = tk.Text(lg, height=8, width=90, font=("Consolas", 9), state="disabled")
         self.log.pack(fill="both", expand=True)
@@ -255,12 +255,12 @@ class App:
 
     def tx(self, pkt, label):
         if not self.link:
-            self.say(f"{label}: brak połączenia")
+            self.say(f"{label}: not connected")
             return False
         try:
             self.link.send(pkt)
         except Exception as e:
-            self.say(f"{label}: błąd wysyłania: {e}")
+            self.say(f"{label}: send failed: {e}")
             return False
         self.say("TX " + label)
         return True
@@ -280,25 +280,25 @@ class App:
             else:
                 self.link = UdpLink(self.events)
         except ImportError:
-            self.say("Brak modułu pyserial: venv\\Scripts\\pip install pyserial")
+            self.say("pyserial is missing: venv\\Scripts\\pip install pyserial")
         except Exception as e:
-            what = self.com.get() if self.transport.get() == "uart" else f"portu UDP {DATA_PORT}"
-            self.say(f"Nie mogę otworzyć {what}: {e}")
+            what = self.com.get() if self.transport.get() == "uart" else f"UDP port {DATA_PORT}"
+            self.say(f"Cannot open {what}: {e}")
             if self.transport.get() == "udp":
-                self.say("Zamknij inny program odbierający dane z lidara (l2ctl.py, listen.py, live.py).")
+                self.say("Close the other program receiving lidar data (l2ctl.py, listen.py, live.py).")
         if not self.link:
-            self.where.configure(text="rozłączony")
+            self.where.configure(text="disconnected")
             return
         self.link.relay = relay
         self.where.configure(text=self.link.name)
-        self.say("Połączono: " + self.link.name)
+        self.say("Connected: " + self.link.name)
         self.do_refresh()
 
     # ---------- host network ----------
     def _net_update(self):
         present = host_ip_present()
-        self.net_lbl.configure(text=f"{HOST_IP} jest na tym komputerze" if present
-                               else f"brak adresu {HOST_IP} — lidar nie ma dokąd nadawać")
+        self.net_lbl.configure(text=f"{HOST_IP} is assigned on this computer" if present
+                               else f"{HOST_IP} is missing — the lidar has nowhere to send")
         busy = "disabled" if self.net_busy else None
         self.btn_add.configure(state=busy or ("disabled" if present else "normal"))
         self.btn_del.configure(state=busy or ("normal" if present else "disabled"))
@@ -306,25 +306,25 @@ class App:
     def _net_run(self, what, cmd):
         self.net_busy = True
         self._net_update()
-        self.say(f"{what}: potwierdź w okienku UAC…")
+        self.say(f"{what}: confirm in the UAC prompt…")
 
         def work():
             ok = run_elevated(cmd)
-            self.notes.put(f"{what}: " + ("wykonano" if ok else "anulowano lub błąd"))
+            self.notes.put(f"{what}: " + ("done" if ok else "cancelled or failed"))
             self.net_busy = False
         threading.Thread(target=work, daemon=True).start()
 
     def do_ip_add(self):
-        self._net_run(f"Dodanie adresu {HOST_IP}",
+        self._net_run(f"Add address {HOST_IP}",
                       f'netsh interface ipv4 set interface \\"{IFACE}\\" dhcpstaticipcoexistence=enabled; '
                       f'netsh interface ipv4 add address \\"{IFACE}\\" {HOST_IP} 255.255.255.0')
 
     def do_ip_del(self):
         if self.transport.get() == "udp" and not messagebox.askyesno(
-                "Usunięcie adresu", f"Usunąć {HOST_IP} z karty {IFACE}?\n\n"
-                "Panel przestanie odbierać dane z lidara po sieci."):
+                "Remove address", f"Remove {HOST_IP} from {IFACE}?\n\n"
+                "The panel will stop receiving lidar data over the network."):
             return
-        self._net_run(f"Usunięcie adresu {HOST_IP}",
+        self._net_run(f"Remove address {HOST_IP}",
                       f'netsh interface ipv4 delete address \\"{IFACE}\\" {HOST_IP}; '
                       f'netsh interface ipv4 set interface \\"{IFACE}\\" dhcpstaticipcoexistence=disabled')
 
@@ -343,37 +343,37 @@ class App:
             self.tx(l2ctl.user_cmd(6), "mode")
 
     def do_reset(self):
-        if messagebox.askyesno("Reset", "Zrestartować lidar?"):
+        if messagebox.askyesno("Reset", "Restart the lidar?"):
             self.tx(l2ctl.user_cmd(1), "reset")
 
     def do_viewer(self):
         if self.viewer and self.viewer.poll() is None:
-            self.say("Podgląd 3D już działa")
+            self.say("3D view is already running")
             return
         if not self.link:
-            self.say("Podgląd 3D: brak połączenia")
+            self.say("3D view: not connected")
             return
         self.link.relay = True
         py = VENV_PY if os.path.exists(VENV_PY) else sys.executable
         self.viewer = subprocess.Popen([py, os.path.join(HERE, "live.py"), "1.0", str(RELAY_PORT)], cwd=HERE)
-        self.say("Uruchomiono podgląd 3D")
+        self.say("3D view started")
 
     def do_setmode(self):
         mode = sum(var.get() << bit for bit, var in self.bits)
         if mode == self.mode:
-            messagebox.showinfo("Tryb pracy", "Tryb się nie zmienia.")
+            messagebox.showinfo("Work mode", "The mode is unchanged.")
             return
-        msg = (f"Zapisać w lidarze tryb {mode} ({mode:05b})?\n\n{l2ctl.decode_mode(mode)}\n\n"
-               "Zmiana jest trwała. Może wymagać wyłączenia i włączenia zasilania lidara.")
+        msg = (f"Write mode {mode} ({mode:05b}) to the lidar?\n\n{l2ctl.decode_mode(mode)}\n\n"
+               "The change is permanent. It may require a lidar power cycle.")
         to_uart = mode >> 3 & 1
         if to_uart and self.transport.get() == "udp":
-            msg += ("\n\nUWAGA: bit 3 przełącza lidar na UART. Po restarcie przestanie odpowiadać "
-                    "po sieci. Wtedy wybierz w panelu „UART” i kliknij „Połącz”. "
-                    "Powrót do Ethernetu jest możliwy tylko przez port szeregowy.")
+            msg += ("\n\nWARNING: bit 3 switches the lidar to UART. After a restart it stops answering "
+                    "on the network. Then select \"UART\" in the panel and click \"Connect\". "
+                    "Going back to Ethernet is only possible over the serial port.")
         elif not to_uart and self.transport.get() == "uart":
-            msg += ("\n\nLidar wróci na Ethernet. Po restarcie wybierz w panelu „Ethernet” "
-                    "i kliknij „Połącz”.")
-        if messagebox.askyesno("Zmiana trybu pracy", msg, icon="warning"):
+            msg += ("\n\nThe lidar will go back to Ethernet. After a restart select \"Ethernet\" "
+                    "in the panel and click \"Connect\".")
+        if messagebox.askyesno("Change work mode", msg, icon="warning"):
             if self.tx(l2ctl.work_mode_pkt(mode), f"setmode {mode}"):
                 self.root.after(800, lambda: self.tx(l2ctl.user_cmd(6), "mode"))
 
@@ -404,22 +404,22 @@ class App:
         self._net_update()
         if not self.link:
             self.dot.itemconfigure(self.dot_id, fill="#e74c3c")
-            self.conn.configure(text="Brak połączenia")
+            self.conn.configure(text="Not connected")
             self.root.after(1000, self._tick)
             return
         s = self.link.snapshot()
         age = time.time() - s["last_rx"] if s["last_rx"] else None
         if age is not None and age < 2:
             self.dot.itemconfigure(self.dot_id, fill="#2ecc40")
-            self.conn.configure(text="Dane płyną")
+            self.conn.configure(text="Data flowing")
         elif age is not None:
             self.dot.itemconfigure(self.dot_id, fill="#ffb000")
-            self.conn.configure(text=f"Brak danych od {age:.0f} s (standby?)")
+            self.conn.configure(text=f"No data for {age:.0f} s (standby?)")
         else:
             self.dot.itemconfigure(self.dot_id, fill="#e74c3c")
-            self.conn.configure(text="Brak danych z lidara")
+            self.conn.configure(text="No data from lidar")
         f = self.fields
-        f["rate"].configure(text=f"{s['n_point']} /s" + (f"   (błędne CRC: {s['n_bad']})" if s["n_bad"] else ""))
+        f["rate"].configure(text=f"{s['n_point']} /s" + (f"   (bad CRC: {s['n_bad']})" if s["n_bad"] else ""))
         pts = s["n_point"] * (s["line"]["point_num"] if s["line"] else 0)
         f["points"].configure(text=f"{pts:,}".replace(",", " "))
         tot = s["n_point"] + s["lost"]
@@ -429,7 +429,7 @@ class App:
             if st["com_rot_period"] and st["sys_rot_period"]:
                 f["rot"].configure(text=f"{1e6 / st['com_rot_period']:.2f} Hz / {1e6 / st['sys_rot_period']:.1f} Hz")
             else:
-                f["rot"].configure(text="zatrzymany")
+                f["rot"].configure(text="stopped")
             f["temp"].configure(text=f"{st['apd_temp']:.1f} °C / {st['imu_temp']:.1f} °C")
             f["volt"].configure(text=f"{st['apd_voltage']:.1f} V / {st['laser_voltage']:.1f} V")
             f["dirty"].configure(text=f"{st['dirty_index']:.3f}")
@@ -438,7 +438,7 @@ class App:
             f["imu"].configure(text=f"{s['n_imu']} /s  gyro [{g[0]:+.3f} {g[1]:+.3f} {g[2]:+.3f}] rad/s  "
                                f"acc [{a[0]:+.2f} {a[1]:+.2f} {a[2]:+.2f}] m/s²")
         elif self.mode is not None and self.mode >> 2 & 1:
-            f["imu"].configure(text="wyłączone w trybie pracy")
+            f["imu"].configure(text="disabled in work mode")
         self.root.after(1000, self._tick)
 
     def _close(self):

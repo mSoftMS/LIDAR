@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 if not exist venv\Scripts\pythonw.exe (
-  echo Brak venv. Uruchom: python -m venv venv ^&^& venv\Scripts\pip install -r requirements.txt
+  echo No venv. Run: python -m venv venv ^&^& venv\Scripts\pip install -r requirements.txt
   pause
   exit /b 1
 )

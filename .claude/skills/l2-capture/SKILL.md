@@ -1,37 +1,40 @@
 ---
 name: l2-capture
-description: Zbierz chmurę punktów z lidaru Unitree L2 do pliku PLY, zrób rzuty PNG do szybkiej oceny albo uruchom podgląd 3D na żywo. Użyj, gdy użytkownik chce zobaczyć, co widzi lidar, zapisać skan albo sprawdzić geometrię po zmianie w parserze.
+description: Capture a point cloud from the Unitree L2 lidar to a PLY file, render PNG projections for a quick check, or start the live 3D view. Use when the user wants to see what the lidar sees, save a scan, or check geometry after a parser change.
 ---
 
-# Chmura punktów L2
+# L2 point cloud
 
-## Zapis do PLY i podgląd PNG
+## Save to PLY and preview as PNG
 
-Port 6201 musi być wolny, czyli panel zamknięty (sprawdź skillem `l2-status`).
+Port 6201 must be free, so the panel must be closed (check with the `l2-status` skill).
 
 ```bash
-venv/Scripts/python listen.py 5          # 5 s -> cloud.ply (+ statystyki)
+venv/Scripts/python listen.py 5          # 5 s -> cloud.ply (+ statistics)
 venv/Scripts/python render.py cloud.ply cloud.png
 ```
 
-Obejrzyj `cloud.png` narzędziem Read i sprawdź sensowność geometrii: proste ściany,
-płaski sufit, pusto pod lidarem, bo L2 widzi tylko półsferę skierowaną w górę.
-Bez takiego sprawdzenia nie uznawaj zmiany w `l2.py` lub `live.py` za działającą.
+Look at `cloud.png` with the Read tool and check that the geometry makes sense: straight walls,
+a flat ceiling, nothing below the lidar, because the L2 only sees the upward-facing hemisphere.
+Do not consider a change in `l2.py` or `live.py` working without this check.
 
-5 s daje około 300 tys. punktów. Pliki `*.ply` i `*.png` są w `.gitignore`.
-Pliki PLY otwiera CloudCompare albo MeshLab.
+5 s gives about 300 thousand points. `*.ply` and `*.png` are in `.gitignore`.
+PLY files open in CloudCompare or MeshLab.
 
-## Podgląd na żywo
+`listen.py` works over UDP only. In UART mode, use the panel's 3D view.
 
-- Jeśli panel działa, użyj przycisku **Podgląd 3D**. Panel przekazuje strumień na `127.0.0.1:6202`.
-- Bez panelu:
+## Live view
+
+- If the panel is running, use the **3D view** button. The panel relays the stream to `127.0.0.1:6202`.
+  This works for both Ethernet and UART connections.
+- Without the panel:
   ```powershell
   Start-Process venv\Scripts\pythonw.exe -ArgumentList "live.py","1.0" -WorkingDirectory .
   ```
-  Pierwszy argument to długość okna w sekundach, drugi, opcjonalny, to port (domyślnie 6201).
-  Uwaga: `live.py` samo nie wysyła komendy. Jeśli strumień poszedł na inny port, najpierw uruchom
-  `l2ctl.py version`.
+  The first argument is the window length in seconds, the second, optional, is the port (default 6201).
+  Note: `live.py` sends no command itself. If the stream went to another port, run
+  `l2ctl.py version` first.
 
-Po starcie sprawdzaj proces co najmniej przez 30 s. Właściwy interpreter jest procesem potomnym
-launchera z venv, a jego okno nosi tytuł `Unitree L2 live`. Open3D wymaga ciągłych tablic
-`float64`, inaczej zgłasza `MemoryError: bad allocation`.
+After starting, watch the process for at least 30 s. The real interpreter is a child process
+of the venv launcher, and its window is titled `Unitree L2 live`. Open3D needs contiguous
+`float64` arrays, otherwise it raises `MemoryError: bad allocation`.

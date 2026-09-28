@@ -1,15 +1,15 @@
 ---
 name: l2-network
-description: Konfiguracja sieci hosta pod lidar Unitree L2. Sprawdzenie, dodanie albo usunięcie drugiego adresu 192.168.1.2 na karcie Wi-Fi. Użyj, gdy lidar nie odpowiada na ping, po restarcie komputera albo gdy użytkownik chce posprzątać konfigurację sieci.
+description: Host network setup for the Unitree L2 lidar. Check, add or remove the second address 192.168.1.2 on the Wi-Fi adapter. Use when the lidar does not answer ping, after a computer restart, or when the user wants to clean up the network configuration.
 ---
 
-# Sieć pod lidar L2
+# Network for the L2 lidar
 
-Lidar (`192.168.1.62`) stoi w switchu tej samej sieci co laptop i nadaje na sztywno na
-`192.168.1.2:6201`. Host dostaje ten adres jako **drugi adres na karcie Wi-Fi**, obok DHCP.
-Internet działa dalej.
+The lidar (`192.168.1.62`) is on a switch in the same network as the laptop and always sends to
+`192.168.1.2:6201`. The host gets this address as a **second address on the Wi-Fi adapter**, next
+to DHCP. Internet access keeps working.
 
-## Sprawdzenie (tylko odczyt)
+## Check (read-only)
 
 ```powershell
 Get-NetIPAddress -InterfaceAlias "Wi-Fi" -AddressFamily IPv4 | Select-Object IPAddress,PrefixLength,PrefixOrigin
@@ -18,35 +18,36 @@ ping -n 2 192.168.1.62
 
 ## Panel
 
-Panel `l2gui.py` ma w sekcji „Sieć hosta” przyciski **Dodaj adres** i **Usuń adres**
-(sprawdzone). Uruchamiają te same komendy co niżej, przez UAC. Gdy panel jest otwarty,
-poproś użytkownika o użycie przycisku.
+The panel `l2gui.py` has **Add address** and **Remove address** buttons in the "Host network"
+section (tested). They run the same commands as below, through UAC. While the panel is open,
+ask the user to use the button.
 
-## Dodanie adresu
+## Adding the address
 
-Wymaga uprawnień administratora. Zapytaj użytkownika o zgodę, potem uruchom z okienkiem UAC:
+Requires administrator rights. Ask the user for consent, then run it with a UAC prompt:
 
 ```powershell
 $cmd = 'netsh interface ipv4 set interface "Wi-Fi" dhcpstaticipcoexistence=enabled; netsh interface ipv4 add address "Wi-Fi" 192.168.1.2 255.255.255.0'
 Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-Command',$cmd
 ```
 
-Potem powtórz sprawdzenie. Upewnij się też, że internet działa:
+Then repeat the check. Also make sure the internet still works:
 `Test-NetConnection 8.8.8.8 -InformationLevel Quiet`.
 
-## Usunięcie adresu
+## Removing the address
 
-Również przez UAC i po zgodzie użytkownika:
+Also through UAC and after the user's consent:
 
 ```powershell
 $cmd = 'netsh interface ipv4 delete address "Wi-Fi" 192.168.1.2; netsh interface ipv4 set interface "Wi-Fi" dhcpstaticipcoexistence=disabled'
 Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-Command',$cmd
 ```
 
-## Uwagi
+## Notes
 
-- WSL2 działa tu w trybie `networkingMode=Mirrored`. Adres dodany wewnątrz Ubuntu nie
-  zadziała, więc konfiguruj go po stronie Windows. Dodany w Windows adres jest widoczny także w WSL.
-- Nie skanuj sieci w poszukiwaniu lidara. Jeśli nie ma go pod `.62`, sprawdź jeszcze
-  `192.168.123.110`, czyli adres z innego przykładu SDK.
-- Zapora Windows może blokować przychodzące UDP 6201 dla nowego interpretera Pythona.
+- WSL2 runs here with `networkingMode=Mirrored`. An address added inside Ubuntu will not
+  work, so configure it on the Windows side. An address added in Windows is also visible in WSL.
+- Do not scan the network for the lidar. If it is not at `.62`, also try
+  `192.168.123.110`, the address from another SDK example.
+- Windows Firewall may block incoming UDP 6201 for a new Python interpreter.
+- In UART mode (work mode bit 3 = 1) the lidar is not on the network at all, so ping fails.

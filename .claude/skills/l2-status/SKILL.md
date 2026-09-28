@@ -1,44 +1,59 @@
 ---
 name: l2-status
-description: Sprawdź, czy lidar Unitree L2 odpowiada i nadaje. Pokazuje wersję, tryb pracy, częstotliwość pakietów, zgubione pakiety, temperatury i napięcia. Użyj, gdy użytkownik pyta „czy lidar działa”, o jego stan, temperaturę albo diagnozę braku danych.
+description: Check whether the Unitree L2 lidar answers and streams. Shows version, work mode, packet rate, lost packets, temperatures and voltages. Use when the user asks whether the lidar works ("czy lidar działa"), about its state or temperature, or to diagnose missing data.
 ---
 
-# Status lidara L2
+# L2 lidar status
 
-Wszystkie kroki są tylko do odczytu. Uruchamiaj je z katalogu projektu.
+All steps are read-only. Run them from the project directory.
 
-1. Łączność:
+1. Connectivity:
    ```bash
    ping -n 2 192.168.1.62
    ```
-   Jeśli nie ma odpowiedzi, sprawdź adres `192.168.1.2` na hoście (skill `l2-network`).
-   Dopiero potem szukaj przyczyny po stronie lidara.
+   If there is no reply, check the `192.168.1.2` address on the host (`l2-network` skill).
+   Only then look for the cause on the lidar side. In UART mode ping always fails (step 4).
 
-2. Sprawdź, czy port 6201 nie jest zajęty przez panel:
+2. Check whether port 6201 is held by the panel:
    ```powershell
    Get-NetUDPEndpoint -LocalPort 6201 -ErrorAction SilentlyContinue
    ```
-   Jeśli jest zajęty, lidar najpewniej obsługuje otwarty panel `l2gui.py`. Nie zamykaj go.
-   Poproś użytkownika o odczyt z panelu albo zrób zrzut okna o tytule
-   zaczynającym się od `Unitree L2` (PIL `ImageGrab` + `FindWindowW`) i odczytaj pola.
+   If it is taken, the lidar is most likely served by an open `l2gui.py` panel. Do not close it.
+   Ask the user to read the panel, or take a screenshot of the window whose title
+   starts with `Unitree L2` (PIL `ImageGrab` + `FindWindowW`) and read the fields.
 
-3. Jeśli port jest wolny:
+3. If the port is free:
    ```bash
    venv/Scripts/python l2ctl.py version
    venv/Scripts/python l2ctl.py mode
    venv/Scripts/python listen.py 5
    ```
-   `listen.py` na starcie wysyła zapytanie o wersję z portu 6201. W ten sposób odzyskuje strumień,
-   jeśli wcześniej przestawiła go komenda z innego portu.
+   `listen.py` sends a version query from port 6201 on startup. That recovers the stream
+   if a command from another port redirected it earlier.
 
-## Interpretacja
+4. If the lidar is in UART mode (bit 3 = 1), the network is silent. Check it over COM4:
+   ```bash
+   venv/Scripts/python l2ctl.py --serial COM4 mode
+   venv/Scripts/python l2ctl.py --serial COM4 version
+   ```
+   Before the Start command, `version` over UART returns ACK `WAIT_ERROR` with no data. That is not a fault.
+   `listen.py` works over UDP only. To measure the UART stream, read COM4 through
+   `l2ctl.SerialSock` and `l2.FrameSplitter` without sending commands. If COM4 cannot be opened,
+   the panel holds the port.
 
-- Około 215 pakietów punktów/s (300 punktów w każdym) i około 250 pakietów IMU/s, jeśli IMU jest włączone.
-- `listen.py` pokazuje 0 B, a ping działa: lidar może być w trybie standby. Przy bicie 4 trybu
-  czeka po restarcie na komendę Start. Druga możliwość to strumień wysyłany na inny port.
-- `sys_rot_period` i `com_rot_period` są w µs. Typowo około 4640 µs (215 Hz, obrót pionowy)
-  i około 230 000 µs (4,4 Hz, obrót poziomy).
-- Temperatury: APD 48–62 °C, IMU około 75 °C przy włączonym IMU. SDK nie podaje limitów,
-  więc nie oceniaj ich jako „w normie” bez zastrzeżenia. Przy wyłączonym IMU temperatura IMU
-  ma stałą, nieaktualną wartość.
-- Straty pakietów przez Wi-Fi dochodzą do około 5 %.
+## Interpretation
+
+- About 215 point packets/s (300 points each) and about 250 IMU packets/s if the IMU is enabled.
+- `listen.py` shows 0 B while ping works: the lidar may be in standby. With mode bit 4 set
+  it waits for the Start command after a restart. The other possibility is the stream going to another port.
+- `sys_rot_period` and `com_rot_period` are in µs. Typically about 4640 µs (215 Hz, vertical rotation)
+  and about 230 000 µs (4.4 Hz, horizontal rotation).
+- After the Start command the IMU sends immediately, points only after about 13 s (motor spin-up).
+- Over UART (4 Mbps) the stream with IMU uses about 1.96 Mbit/s. 0.05 % lost packets
+  and single bad CRCs were measured.
+- Temperatures: APD 42–62 °C, IMU about 75 °C with the IMU enabled. The SDK gives no limits,
+  so do not call them "normal" without a caveat. With the IMU disabled the IMU temperature
+  has a constant, stale value.
+- Packet loss over Wi-Fi reaches about 5 %.
+- Window dirt index: 4.000 was observed over UART. The SDK gives no unit or threshold,
+  so do not judge it without a caveat.

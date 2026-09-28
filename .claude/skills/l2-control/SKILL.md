@@ -1,43 +1,46 @@
 ---
 name: l2-control
-description: Sterowanie lidarem Unitree L2. Start, standby, synchronizacja czasu, reset i zmiana trwałego trybu pracy (workMode, bity FOV/2D/IMU/UART/autostart). Użyj, gdy użytkownik chce zatrzymać lub uruchomić lidar, włączyć lub wyłączyć IMU albo zmienić tryb.
+description: Control the Unitree L2 lidar. Start, standby, time sync, reset and changing the persistent work mode (workMode bits FOV/2D/IMU/UART/autostart). Use when the user wants to stop or start the lidar, enable or disable the IMU, or change the mode.
 ---
 
-# Sterowanie lidarem L2
+# L2 lidar control
 
-Narzędzie: `venv/Scripts/python l2ctl.py <komenda>`. Wysyła z portu 6201, bo lidar kieruje
-strumień na port źródłowy ostatniej komendy. Gdy panel `l2gui.py` jest otwarty, CLI odmówi
-(`UDP 6201 is busy`). Wtedy poproś użytkownika o użycie przycisku w panelu.
+Tool: `venv/Scripts/python l2ctl.py [--serial COM4] <command>`. Over Ethernet it sends from
+port 6201, because the lidar directs its stream to the source port of the last command. While the
+panel `l2gui.py` is open, the CLI refuses (`UDP 6201 is busy`, or COM4 cannot be opened).
+Then ask the user to use the button in the panel.
 
-| Komenda | Skutek | Zgoda |
+| Command | Effect | Consent |
 |---|---|---|
-| `version`, `latency`, `mode` | tylko odczyt | nie trzeba |
-| `standby` / `start` | zatrzymuje lub wznawia obrót | zapytaj |
-| `timesync` | ustawia zegar lidara na czas hosta | zapytaj |
-| `reset` | restart lidara | zapytaj |
-| `setmode <n> --yes` | **trwały** zapis trybu | wyraźne polecenie |
+| `version`, `latency`, `mode` | read-only | not needed |
+| `standby` / `start` | stops or resumes rotation | ask |
+| `timesync` | sets the lidar clock to host time | ask |
+| `reset` | restarts the lidar | ask |
+| `setmode <n> --yes` | **persistent** mode write | explicit instruction |
 
-## Tryb pracy
+## Work mode
 
-Bity: 0 = szeroki FOV 192°, 1 = pomiar 2D, 2 = IMU **wyłączone**, 3 = **UART zamiast Ethernetu**,
-4 = czekanie na Start po włączeniu zasilania.
+Bits: 0 = wide FOV 192°, 1 = 2D measurement, 2 = IMU **disabled**, 3 = **UART instead of Ethernet**,
+4 = wait for Start after power-up.
 
-Procedura zmiany trybu:
-1. Odczytaj obecny tryb (`mode`) i pokaż użytkownikowi nowy tryb rozpisany na bity.
-   `setmode <n>` bez `--yes` tylko go wypisuje i nic nie wysyła.
-2. **Jeśli nowy tryb ma bit 3 = 1**, ostrzeż wyraźnie: po restarcie lidar przestanie odpowiadać
-   po sieci, a powrót będzie możliwy tylko przez UART (COM4, 4 Mbps). Panel (wybór „UART”)
-   i `l2ctl.py --serial COM4 ...` obsługują UART. Przełączenie i powrót z panelu sprawdzono
-   na lidarze. W trybie Ethernet lidar nie odpowiada po UART, więc łącza nie da się sprawdzić
-   przed przełączeniem.
-3. Po zgodzie wyślij `setmode <n> --yes` i potwierdź zmianę ponownym `mode`.
-   Powrót z UART na Ethernet: `l2ctl.py --serial COM4 setmode <n z bitem 3 = 0> --yes`.
-4. Zmiana może wymagać wyłączenia i włączenia zasilania. Poproś o to użytkownika.
-   Przy bicie 4 = 1 po restarcie trzeba wysłać `start`.
+Mode change procedure:
+1. Read the current mode (`mode`) and show the user the new mode broken down into bits.
+   `setmode <n>` without `--yes` only prints it and sends nothing.
+2. **If the new mode has bit 3 = 1**, warn clearly: after a restart the lidar stops answering
+   on the network, and the only way back is over UART (COM4, 4 Mbps). The panel ("UART" option)
+   and `l2ctl.py --serial COM4 ...` support UART. Switching and going back from the panel were
+   tested on the lidar. In Ethernet mode the lidar does not answer over UART, so the link cannot
+   be tested before switching.
+3. After consent send `setmode <n> --yes` and confirm the change with another `mode`.
+   Going back from UART to Ethernet: `l2ctl.py --serial COM4 setmode <n with bit 3 = 0> --yes`.
+4. The change may require a power cycle. Ask the user to do it.
+   With bit 4 = 1 you have to send `start` after a restart. Points arrive about 13 s after Start,
+   the IMU immediately. In UART mode the lidar only reports its version after Start (`WAIT_ERROR` before).
 
-## Weryfikacja
+## Verification
 
-Po `standby` i `start` sprawdź skillem `l2-status`, czy strumień zatrzymał się i wrócił.
-Dopóki tego nie sprawdzisz na lidarze, nie pisz, że komenda działa. Do tej pory
-na lidarze sprawdzono `version`, `latency`, `mode`, zapis trybu z panelu oraz przełączenie
-na UART i z powrotem na Ethernet z panelu.
+After `standby` and `start`, check with the `l2-status` skill that the stream stopped and came back.
+Until you have checked it on the lidar, do not say a command works. So far the following were
+tested on the lidar: `version`, `latency`, `mode`, writing the mode from the panel, switching
+to UART and back to Ethernet from the panel, and `start`, `version`, `latency` and `mode`
+via `l2ctl.py --serial COM4`.
