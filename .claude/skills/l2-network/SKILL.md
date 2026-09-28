@@ -16,6 +16,12 @@ Get-NetIPAddress -InterfaceAlias "Wi-Fi" -AddressFamily IPv4 | Select-Object IPA
 ping -n 2 192.168.1.62
 ```
 
+## Panel
+
+Panel `l2gui.py` ma w sekcji „Sieć hosta” przyciski **Dodaj adres** i **Usuń adres**
+(sprawdzone). Uruchamiają te same komendy co niżej, przez UAC. Gdy panel jest otwarty,
+poproś użytkownika o użycie przycisku.
+
 ## Dodanie adresu
 
 Wymaga uprawnień administratora. Zapytaj użytkownika o zgodę, potem uruchom z okienkiem UAC:

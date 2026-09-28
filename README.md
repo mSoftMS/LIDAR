@@ -10,9 +10,9 @@ Format ramek i przeliczenie odległości na punkty XYZ przeniesiono z nagłówk�
 
 | Plik | Co robi |
 |---|---|
-| `l2gui.py` | panel ze statusem i przyciskami sterowania (Tkinter) |
+| `l2gui.py` | panel ze statusem i przyciskami sterowania (Tkinter); połączenie przez Ethernet albo UART, przyciski dodania i usunięcia adresu `192.168.1.2` |
 | `live.py` | podgląd chmury punktów na żywo (Open3D) |
-| `l2ctl.py` | sterowanie z wiersza poleceń |
+| `l2ctl.py` | sterowanie z wiersza poleceń; `--serial COM4` wysyła przez UART |
 | `listen.py` | kilkusekundowy nasłuch: statystyki ramek, stan lidara, zapis `cloud.ply` |
 | `render.py` | rzuty chmury z pliku PLY do PNG (widok z góry i dwa z boku) |
 | `l2.py` | parser protokołu (nagłówek, CRC, punkty, IMU) |
@@ -41,6 +41,9 @@ co karta Wi-Fi, można dodać ten adres jako drugi, bez utraty DHCP i internetu
 netsh interface ipv4 set interface "Wi-Fi" dhcpstaticipcoexistence=enabled
 netsh interface ipv4 add address "Wi-Fi" 192.168.1.2 255.255.255.0
 ```
+
+W panelu robią to przyciski **Dodaj adres** i **Usuń adres** w sekcji „Sieć hosta”
+(potwierdzenie w okienku UAC). Nazwa karty jest w stałej `IFACE` w `l2gui.py`.
 
 Wycofanie:
 
@@ -82,17 +85,22 @@ Tryb pracy jest zapisywany trwale w lidarze. Znaczenie bitów:
 | 4 | start po włączeniu zasilania | czeka na komendę Start |
 
 **Bit 3 = 1 odcina lidar od sieci.** Po restarcie odpowiada wyłącznie przez UART
-(4 Mbps). Wrócić do Ethernetu można tylko przez port szeregowy.
+(4 Mbps, 8N1). Wrócić do Ethernetu można tylko przez port szeregowy. W panelu:
+wybierz „UART” i kliknij „Połącz”, potem odznacz bit 3 i kliknij „Zapisz tryb…”.
+Po restarcie lidara przełącz panel z powrotem na „Ethernet”.
 
 ## Sprawdzony egzemplarz
 
 - `YS-L2`, hw `2.2.1.1`, fw `2.8.11.1`, build 2025-07-15.
 - Tryb zastany przy pierwszym podłączeniu: `5` (szeroki FOV, IMU wyłączone).
   Nie był to tryb fabryczny.
+- Przełączenie na UART, praca panelu po UART i powrót na Ethernet działają.
+  Po UART lidar używa tego samego formatu ramek co po UDP.
+- W trybie Ethernet lidar nie odpowiada na komendy wysłane po UART i nic po nim nie nadaje.
+- Przyciski **Dodaj adres** i **Usuń adres** w panelu działają.
 
 ## Ograniczenia
 
-- Nie sprawdzono pracy po UART.
 - Tryb 2D (typ pakietu 103) nie jest dekodowany.
 - Akcelerometr w osi pionowej pokazuje ok. 10,35 m/s², czyli ok. 5 % więcej niż grawitacja.
   Przyczyna nie jest zbadana.

@@ -26,9 +26,12 @@ Procedura zmiany trybu:
 1. Odczytaj obecny tryb (`mode`) i pokaż użytkownikowi nowy tryb rozpisany na bity.
    `setmode <n>` bez `--yes` tylko go wypisuje i nic nie wysyła.
 2. **Jeśli nowy tryb ma bit 3 = 1**, ostrzeż wyraźnie: po restarcie lidar przestanie odpowiadać
-   po sieci, a powrót będzie możliwy tylko przez UART (COM4, 4 Mbps). Obsługi UART nie
-   napisano ani nie przetestowano.
+   po sieci, a powrót będzie możliwy tylko przez UART (COM4, 4 Mbps). Panel (wybór „UART”)
+   i `l2ctl.py --serial COM4 ...` obsługują UART. Przełączenie i powrót z panelu sprawdzono
+   na lidarze. W trybie Ethernet lidar nie odpowiada po UART, więc łącza nie da się sprawdzić
+   przed przełączeniem.
 3. Po zgodzie wyślij `setmode <n> --yes` i potwierdź zmianę ponownym `mode`.
+   Powrót z UART na Ethernet: `l2ctl.py --serial COM4 setmode <n z bitem 3 = 0> --yes`.
 4. Zmiana może wymagać wyłączenia i włączenia zasilania. Poproś o to użytkownika.
    Przy bicie 4 = 1 po restarcie trzeba wysłać `start`.
 
@@ -36,4 +39,5 @@ Procedura zmiany trybu:
 
 Po `standby` i `start` sprawdź skillem `l2-status`, czy strumień zatrzymał się i wrócił.
 Dopóki tego nie sprawdzisz na lidarze, nie pisz, że komenda działa. Do tej pory
-na lidarze sprawdzono tylko `version`, `latency`, `mode` i zapis trybu z panelu.
+na lidarze sprawdzono `version`, `latency`, `mode`, zapis trybu z panelu oraz przełączenie
+na UART i z powrotem na Ethernet z panelu.

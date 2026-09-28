@@ -21,7 +21,9 @@ Szczegóły protokołu i sieci są w `README.md`. Przeczytaj go przed zmianą w 
 - Zmiana `workMode` jest trwała. **Bit 3 = 1 odcina lidar od sieci**, a powrót jest
   możliwy tylko przez UART. Taka zmiana wymaga wyraźnego polecenia użytkownika.
 - Bit 4 = 1: po włączeniu zasilania lidar czeka na komendę Start.
-- Adapter UART (CH343) zgłasza się jako COM4. Nie sprawdzano pracy po UART.
+- Adapter UART (CH343) zgłasza się jako COM4, 4 Mbps. Przełączenie na UART, pracę panelu
+  po UART i powrót na Ethernet sprawdził użytkownik 2026-09-28. W trybie Ethernet lidar milczy
+  na UART, a w trybie UART na sieci. Przyciski adresu hosta w panelu też sprawdził użytkownik.
 
 ## Polecenia
 
@@ -31,6 +33,7 @@ Projekt nie ma testów, lintera ani kroku budowania. Weryfikacja odbywa się na 
 venv/Scripts/python l2ctl.py version|latency|mode        # tylko odczyt
 venv/Scripts/python l2ctl.py standby|start|timesync|reset # zmienia stan — zapytaj
 venv/Scripts/python l2ctl.py setmode <int> --yes          # trwałe — tylko na wyraźne polecenie
+venv/Scripts/python l2ctl.py --serial COM4 <komenda>      # to samo przez UART
 venv/Scripts/python listen.py [sekundy]                   # statystyki + zapis cloud.ply
 venv/Scripts/python render.py [cloud.ply] [cloud.png]     # rzuty PNG do obejrzenia przez Read
 start_panel.bat                                           # panel (pythonw, bez konsoli)
@@ -46,9 +49,12 @@ Do typowych zadań są skille projektu w `.claude/skills/` (`l2-status`, `l2-con
 - `l2ctl.py` — budowanie ramek komend (`build`, `user_cmd`, `work_mode_pkt`,
   `time_sync_pkt`), `describe` i `decode_mode`. Panel i `listen.py` importują go jako bibliotekę,
   więc przy zmianie sygnatur sprawdź wszystkie trzy pliki.
-- `l2gui.py` — klasa `Link` jest jedynym właścicielem gniazda 6201. Wątek odbiorczy liczy
-  statystyki strumienia, a pozostałe ramki (ACK, wersja, tryb) wrzuca do kolejki,
-  którą `App._pump` obsługuje w wątku Tk. Komendy idą przez `Link.send` z tego samego gniazda.
+- `l2gui.py` — `Link` obsługuje ramki niezależnie od transportu: liczy statystyki strumienia,
+  a pozostałe ramki (ACK, wersja, tryb) wrzuca do kolejki, którą `App._pump` obsługuje w wątku Tk.
+  `UdpLink` jest jedynym właścicielem gniazda 6201 i wysyła komendy z niego.
+  `SerialLink` składa ramki z bajtów przez `l2.FrameSplitter`. `l2ctl.SerialSock` robi to samo
+  dla CLI. Przyciski adresu hosta uruchamiają `netsh` przez UAC (`run_elevated`), a obecność
+  adresu panel sprawdza próbą `bind` na `192.168.1.2`.
 - Podgląd 3D: panel uruchamia `live.py` jako podproces i przekazuje kopię każdego datagramu
   na `127.0.0.1:6202`. `live.py` ma własną, wektorową (NumPy) kopię przeliczenia XYZ w `xyz_np`.
   **Zmiana geometrii w `l2.to_xyz` wymaga tej samej zmiany w `live.xyz_np`.**

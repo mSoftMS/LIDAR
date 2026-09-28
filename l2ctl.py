@@ -5,6 +5,7 @@ import l2
 LIDAR = ("192.168.1.62", 6101)
 # The lidar streams to the source port of the last command, so send from the data port.
 DATA_PORT = 6201
+UART_BAUD = 4000000
 
 def build(ptype, data):
     crc = zlib.crc32(data) & 0xFFFFFFFF
@@ -39,6 +40,26 @@ def send(pkt, sock, wait=1.0):
         if h and h[0] not in (102, 104): out.append((a, describe(d)))
     return out
 
+class SerialSock:
+    """Socket-like wrapper so the same send/recv code works over UART."""
+
+    def __init__(self, port):
+        import serial
+        self.ser = serial.Serial(port, UART_BAUD, timeout=0.2)
+        self.split = l2.FrameSplitter()
+        self.pending = []
+
+    def sendto(self, pkt, addr):
+        self.ser.write(pkt)
+
+    def recvfrom(self, n):
+        while not self.pending:
+            data = self.ser.read(self.ser.in_waiting or 1)
+            if not data:
+                raise socket.timeout
+            self.pending += self.split.feed(data)
+        return self.pending.pop(0), self.ser.port
+
 MODE_BITS = [(0, "FOV", "standard 180", "wide 192"), (1, "measure", "3D", "2D"),
              (2, "IMU", "enabled", "disabled"), (3, "link", "Ethernet", "serial"),
              (4, "power-on", "auto start", "wait for start cmd")]
@@ -53,19 +74,33 @@ def time_sync_pkt():
     t = time.time()
     return build(106, struct.pack("<II", int(t), int((t % 1) * 1e9)))
 
-USAGE = """usage: l2ctl.py <command>
+USAGE = """usage: l2ctl.py [--serial COMx] <command>
   read-only : version | latency | mode
   runtime   : standby | start | timesync | reset
   persistent: setmode <int> --yes   (stored in lidar; bit 3=1 switches it off Ethernet!)"""
 
 if __name__ == "__main__":
+    args = sys.argv[1:]
+    port = None
+    if "--serial" in args:
+        i = args.index("--serial")
+        if i + 1 >= len(args): sys.exit(USAGE)
+        port = args[i + 1]
+        del args[i:i + 2]
+    sys.argv[1:] = args
     if len(sys.argv) < 2: sys.exit(USAGE)
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.bind(("0.0.0.0", DATA_PORT))
-    except OSError:
-        sys.exit(f"UDP {DATA_PORT} is busy (panel or viewer running?) - use the panel instead")
-    s.settimeout(0.2)
+    if port:
+        try:
+            s = SerialSock(port)
+        except Exception as e:
+            sys.exit(f"cannot open {port}: {e}")
+    else:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.bind(("0.0.0.0", DATA_PORT))
+        except OSError:
+            sys.exit(f"UDP {DATA_PORT} is busy (panel or viewer running?) - use the panel instead")
+        s.settimeout(0.2)
     c = sys.argv[1]
     pkts = {"version": user_cmd(3), "latency": user_cmd(4), "mode": user_cmd(6),
             "standby": user_cmd(2, 1), "start": user_cmd(2, 0), "reset": user_cmd(1),
@@ -81,9 +116,12 @@ if __name__ == "__main__":
         pkt = pkts[c]
     else:
         sys.exit(USAGE)
-    for a, r in send(pkt, s, 1.5):
+    replies = send(pkt, s, 1.5)
+    for a, r in replies:
         print(r)
-    if c == "mode":
+    if not replies:
+        print(f"no reply from lidar via {port or 'UDP'}")
+    if c == "mode" and replies:
         s.sendto(pkt, LIDAR); t = time.time()
         while time.time() - t < 1.5:
             try: d, _ = s.recvfrom(65535)

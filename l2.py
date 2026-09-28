@@ -56,3 +56,30 @@ def parse_imu(pkt):
     seq, _, sec, nsec = struct.unpack_from("<IIII", pkt, 12)
     v = struct.unpack_from("<10f", pkt, 28)
     return dict(seq=seq, stamp=sec + nsec * 1e-9, quat=v[0:4], gyro=v[4:7], acc=v[7:10])
+
+class FrameSplitter:
+    """Reassembles frames from a byte stream (UART has no datagram boundaries)."""
+    MAX_SIZE = 4096
+
+    def __init__(self):
+        self.buf = bytearray()
+
+    def feed(self, data):
+        self.buf += data
+        out = []
+        while True:
+            i = self.buf.find(MAGIC)
+            if i < 0:
+                del self.buf[:max(0, len(self.buf) - len(MAGIC) + 1)]
+                return out
+            del self.buf[:i]
+            if len(self.buf) < 12:
+                return out
+            psize = struct.unpack_from("<I", self.buf, 8)[0]
+            if not 24 <= psize <= self.MAX_SIZE:
+                del self.buf[:1]    # false magic, resync
+                continue
+            if len(self.buf) < psize:
+                return out
+            out.append(bytes(self.buf[:psize]))
+            del self.buf[:psize]
